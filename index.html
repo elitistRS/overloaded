@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Overloaded</title>
+    <link rel="alt1 appconfig" type="application/json" href="./appconfig.json">
+    <style>
+        body { font-family: sans-serif; padding: 12px; color: #ddd; background: #1a1a1a; font-size: 15px; }
+        .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .cols-label { font-size: 14px; color: #bbb; }
+        .help-trigger { cursor: pointer; color: #8cf; text-decoration: underline; }
+        .help-trigger:hover { color: #bdf; }
+        .help-box { display: none; background: #252525; border: 1px solid #444; border-radius: 4px; padding: 8px 10px; margin-bottom: 12px; font-size: 13px; color: #bbb; line-height: 1.5; }
+        .help-box.visible { display: block; }
+        .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        .controls label { font-size: 14px; color: #bbb; }
+        select, button { background: #2a2a2a; border: 1px solid #555; color: #ccc; padding: 4px 8px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+        select:hover, button:hover { border-color: #888; }
+        .toggle-group { display: flex; align-items: center; gap: 6px; }
+        .toggle-group span { font-size: 14px; color: #bbb; }
+        .toggle-btn { padding: 4px 10px; border-radius: 4px; font-size: 13px; border: 1px solid #555; background: #2a2a2a; color: #999; cursor: pointer; }
+        .toggle-btn.active { background: #3a5a3a; border-color: #5a8a5a; color: #cfc; }
+
+        .owned-section { background: #222; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-top: 12px; }
+        .section-title { font-size: 13px; color: #999; margin: 0 0 8px 0; font-weight: bold; }
+        .section-divider { border: none; border-top: 1px solid #333; margin: 10px 0; }
+        .section-subtitle { font-size: 11px; color: #777; margin-bottom: 6px; }
+        #inv-grid, #manual-grid { display: grid; gap: 5px; }
+        .slot { display: flex; flex-direction: column; align-items: center; }
+        .slot .lbl { font-size: 11px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52px; text-align: center; }
+        #inv-grid input, #manual-grid input {
+            width: 48px; height: 28px;
+            background: #2a2a2a; border: 1px solid #444;
+            color: #ddd; font-size: 13px;
+            padding: 2px 4px; border-radius: 3px;
+            text-align: center; box-sizing: border-box;
+        }
+        #inv-grid input:focus, #manual-grid input:focus { border-color: #6a6; outline: none; }
+        #manual-grid input { border-color: #554; }
+        #manual-grid input:focus { border-color: #aa6; }
+        .calc-section { margin-top: 12px; padding: 10px; background: #222; border: 1px solid #333; border-radius: 6px; }
+        .calc-option { display: block; font-size: 14px; color: #ccc; margin-bottom: 8px; cursor: pointer; }
+        .calc-option input[type="radio"] { margin-right: 6px; }
+        .target-input { width: 50px; background: #2a2a2a; border: 1px solid #555; color: #ddd; padding: 2px 6px; border-radius: 3px; font-size: 13px; text-align: center; }
+        .calc-btn { margin-top: 4px; padding: 6px 16px; background: #3a5a3a; border: 1px solid #5a8a5a; color: #cfc; border-radius: 4px; font-size: 14px; cursor: pointer; }
+        .calc-btn:hover { background: #4a6a4a; }
+        #calc-results { margin-top: 12px; }
+        .results-box { background: #222; border: 1px solid #333; border-radius: 6px; padding: 10px; }
+        .results-box h3 { margin: 0 0 8px 0; font-size: 14px; color: #cfc; }
+        .results-box .result-group { margin-bottom: 10px; }
+        .results-box .result-group b { font-size: 12px; color: #aaa; display: block; margin-bottom: 4px; }
+        .results-box ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+        .results-box li { display: flex; justify-content: space-between; padding: 2px 0; color: #ccc; }
+        .results-box li .amt { color: #fc8; font-weight: bold; }
+        .results-box li .amt.zero { color: #666; font-weight: normal; }
+        #status { font-size: 12px; color: #888; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="top-row">
+        <span class="help-trigger" id="help-trigger">How to use &#9432;</span>
+        <label class="cols-label">Columns:
+            <select id="cols">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4" selected>4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+            </select>
+        </label>
+    </div>
+    <div class="help-box" id="help-box">Position your mouse in the top left corner of the top leftmost inventory slot. Press Alt+1 and place your ingredients in the listed order. Make sure you set your columns to match your RS bank settings. OCR will automatically re-read every 2 seconds after the first scan.</div>
+
+    <div class="controls">
+        <label class="control-label">Making:
+            <select id="recipe">
+                <option value="overload">Overload</option>
+                <option value="supreme">Supreme Overload</option>
+                <option value="elder" selected>Elder Overload</option>
+            </select>
+        </label>
+        <div class="toggle-group">
+            <span>Start from:</span>
+            <button class="toggle-btn active" id="btn-herbs">Herbs</button>
+            <button class="toggle-btn" id="btn-unf">Unfinished</button>
+        </div>
+    </div>
+
+    <div class="owned-section">
+        <div class="section-title">Owned</div>
+        <div id="inv-grid"></div>
+        <hr class="section-divider">
+        <div class="section-subtitle">Enter these manually</div>
+        <div id="manual-grid"></div>
+    </div>
+
+    <div class="calc-section">
+        <label class="calc-option"><input type="radio" name="calc" value="max" checked> Show me how many I can make.</label>
+        <label class="calc-option"><input type="radio" name="calc" value="target"> I want to make <input type="number" id="target-amount" value="100" min="1" class="target-input">.</label>
+        <button id="btn-calc" class="calc-btn">Continue</button>
+    </div>
+
+    <div id="calc-results"></div>
+
+    <div id="status">Loading...</div>
+
+    <script>
+        // ── OCR font ──────────────────────────────────────────────
+        var FONT_CHARS   = '0123456789m()hr';
+        var FONT_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAJYAAAAKCAMAAABhe1foAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAMUExURf///wAAAAAAAQAAAEAwZSgAAAAEdFJOU////wBAKqn0AAAACXBIWXMAAA6/AAAOvwE4BVMkAAABE0lEQVQ4T61Ui27DMAi01///592zdlJVmqNdGuAwBYyTjNcLP0JqDDOr2ldn6PJaF2BZkHyGoYvGmGRzkkFLwUUJLCdDrqF2B+AUtPTvZ8BW55aFKa1VWomTXvXsaNh+F7KXeAgPacuimu4WLs0jhzZ7Wo6kW6FxdOqyJRKfhSPc23IpjIWp0AlZTgtLLpxuengoD0efhpULh+/45jzAra2VQf73hhXkk7WIixa6le1NyBfxE015Bm+yqdoVmlHGPNxe6+2Y0mV/trWRQ7Cmu+JgOB7Np4N33hUB3SqhMuX+57aSXKPmt0C0g99Jl0TelKAxdSlj+oWoPoXmA+A1i1ja6kK+0YvGo85vXRzW3O6fMecvuG0MjNDI7LMAAAAASUVORK5CYII=';
+        var fontTemplates = null;
+
+        function loadFont() {
+            var img = new Image();
+            img.onload = function () {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.width; canvas.height = img.height;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                var data = ctx.getImageData(0, 0, img.width, img.height).data;
+                var W = img.width, H = img.height;
+
+                var colHasWhite = new Array(W).fill(false);
+                for (var x = 0; x < W; x++)
+                    for (var y = 0; y < H; y++) {
+                        var i = (y * W + x) * 4;
+                        if (data[i] > 200 && data[i+1] > 200 && data[i+2] > 200) { colHasWhite[x] = true; break; }
+                    }
+
+                var segments = [], segStart = -1;
+                for (var x2 = 0; x2 <= W; x2++) {
+                    if (x2 < W && colHasWhite[x2]) { if (segStart === -1) segStart = x2; }
+                    else { if (segStart !== -1) { segments.push({ start: segStart, end: x2 }); segStart = -1; } }
+                }
+
+                fontTemplates = {};
+                for (var j = 0; j < FONT_CHARS.length && j < segments.length; j++) {
+                    var ch = FONT_CHARS[j], s = segments[j], w = s.end - s.start;
+                    var mask = new Uint8Array(w * H);
+                    for (var fy = 0; fy < H; fy++)
+                        for (var fx = 0; fx < w; fx++) {
+                            var idx = (fy * W + (s.start + fx)) * 4;
+                            mask[fy * w + fx] = (data[idx] > 200 && data[idx+1] > 200 && data[idx+2] > 200) ? 1 : 0;
+                        }
+                    fontTemplates[ch] = { mask: mask, w: w, h: H };
+                }
+            };
+            img.src = 'data:image/png;base64,' + FONT_PNG_B64;
+        }
+
+        function yellowScore(r, g, b) {
+            if (r < 140 || g < 140 || b > 170 || Math.abs(r - g) > 90) return 0;
+            return Math.max(0, Math.min(1, (Math.min(r, g) - b) / 180));
+        }
+
+        function ocrRegion(rx, ry, rw, rh) {
+            if (!fontTemplates || typeof alt1 === 'undefined') return '';
+            var dataStr;
+            try { dataStr = alt1.getRegion(rx, ry, rw, rh); } catch (e) { return ''; }
+            if (!dataStr) return '';
+            var bin = atob(dataStr);
+
+            var yMap = new Float32Array(rw * rh), totalY = 0;
+            for (var py = 0; py < rh; py++)
+                for (var px = 0; px < rw; px++) {
+                    var i = (py * rw + px) * 4;
+                    var s = yellowScore(bin.charCodeAt(i+2), bin.charCodeAt(i+1), bin.charCodeAt(i));
+                    yMap[py * rw + px] = s; totalY += s;
+                }
+            if (totalY < 3) return '';
+
+            var colY = new Array(rw).fill(0);
+            for (var cx = 0; cx < rw; cx++)
+                for (var cy = 0; cy < rh; cy++) colY[cx] += yMap[cy * rw + cx];
+
+            var yMin = rh, yMax = -1;
+            for (var scanY = 0; scanY < rh; scanY++)
+                for (var scanX = 0; scanX < rw; scanX++)
+                    if (yMap[scanY * rw + scanX] > 0.4) { if (scanY < yMin) yMin = scanY; if (scanY > yMax) yMax = scanY; break; }
+            if (yMax < 0) return '';
+
+            function scoreAt(sx) {
+                var bestCh = null, bestScore = -Infinity, bestW = 0;
+                for (var ch in fontTemplates) {
+                    var t = fontTemplates[ch];
+                    if (sx + t.w > rw || yMin + t.h > rh + 2) continue;
+                    var posSum = 0, posN = 0, negSum = 0, negN = 0;
+                    for (var ty = 0; ty < t.h; ty++) {
+                        var captY2 = yMin + ty; if (captY2 >= rh) continue;
+                        for (var tx = 0; tx < t.w; tx++) {
+                            var tPix = t.mask[ty * t.w + tx], ys = yMap[captY2 * rw + (sx + tx)];
+                            if (tPix) { posSum += ys; posN++; } else { negSum += ys; negN++; }
+                        }
+                    }
+                    if (posN < 3) continue;
+                    var score = (posSum / posN) - (negN > 0 ? (negSum / negN) * 0.8 : 0);
+                    if (score > bestScore) { bestScore = score; bestCh = ch; bestW = t.w; }
+                }
+                return { ch: bestCh, score: bestScore, w: bestW };
+            }
+
+            var result = [], x3 = 0;
+            while (x3 < rw) {
+                if (colY[x3] < 0.3) { x3++; continue; }
+                var m = scoreAt(x3);
+                if (m.ch && m.score > 0.35) { result.push(m.ch); x3 += m.w; } else { x3++; }
+            }
+            return result.join('');
+        }
+
+        // ── slot definitions ─────────────────────────────────────
+        var ALL_SLOTS = {
+            herbs: [
+                { label: 'Irit',   short: 'Irit',   unf_label: 'Irit (u)',  unf_short: 'Irit(u)' },
+                { label: 'Kwuarm', short: 'Kwua',   unf_label: 'Kwua (u)', unf_short: 'Kwua(u)' },
+                { label: 'Cadan',  short: 'Cadan',  unf_label: 'Cad (u)',  unf_short: 'Cadan(u)' },
+                { label: 'Lanta',  short: 'Lanta',  unf_label: 'Lant (u)', unf_short: 'Lanta(u)' },
+                { label: 'Dwarf',  short: 'Dwarf',  unf_label: 'Dwrf (u)', unf_short: 'Dwarf(u)' },
+                { label: 'Spirit', short: 'Sprit',  unf_label: 'Sprt (u)', unf_short: 'Sprit(u)' }
+            ],
+            other_herbs: [
+                { label: 'Avant', short: 'Avant' },
+                { label: 'Torst', short: 'Torst' }
+            ],
+            secondaries: [
+                { label: 'Newt',   short: 'Newt' },
+                { label: 'Limp',   short: 'Limp' },
+                { label: 'WhBer',  short: 'WhBer' },
+                { label: 'Cactus', short: 'Cact' },
+                { label: 'WineZ',  short: 'WineZ' },
+                { label: 'Blood',  short: 'Cong' },
+                { label: 'MudRn',  short: 'MudRn' },
+                { label: 'Gren',   short: 'Gren' },
+                { label: 'Miasma', short: 'Miasm' }
+            ],
+            extremes: [
+                { label: 'Ex Att', short: 'Ex Att' },
+                { label: 'Ex Str', short: 'Ex Str' },
+                { label: 'Ex Def', short: 'Ex Def' },
+                { label: 'Ex Mag', short: 'Ex Mag' },
+                { label: 'Ex Rng', short: 'Ex Rng' },
+                { label: 'Ex Nec', short: 'Ex Nec' }
+            ],
+            end: [
+                { label: 'Ovl (3)', short: 'Ovl (3)', id: 'ovl' },
+                { label: 'Flask',   short: 'Flask',   id: 'flask' },
+                { label: 'Primal',  short: 'Primal',  id: 'primal' },
+                { label: 'Fell',    short: 'Fell',    id: 'fell' },
+                { label: 'Sup (6)', short: 'Sup (6)', id: 'sup' }
+            ]
+        };
+
+        var MANUAL_SUPERS = [
+            'S.Att (3)', 'S.Att (4)',
+            'S.Str (3)', 'S.Str (4)',
+            'S.Def (3)', 'S.Def (4)',
+            'S.Mag (3)', 'S.Mag (4)',
+            'S.Rng (3)', 'S.Rng (4)',
+            'S.Nec (3)', 'S.Nec (4)'
+        ];
+
+        var MANUAL_UNF = [
+            'Irit (u)', 'Kwua (u)', 'Cad (u)',
+            'Lant (u)', 'Dwrf (u)', 'Sprt (u)'
+        ];
+
+        var MANUAL_HERBS = [
+            'Irit', 'Kwuarm', 'Cadan',
+            'Lanta', 'Dwarf', 'Spirit'
+        ];
+
+        function getEndSlots(recipe) {
+            var end = ALL_SLOTS.end;
+            if (recipe === 'overload') return end.filter(function(s) { return s.id !== 'ovl' && s.id !== 'flask' && s.id !== 'primal' && s.id !== 'fell' && s.id !== 'sup'; });
+            if (recipe === 'supreme') return end.filter(function(s) { return s.id !== 'primal' && s.id !== 'fell' && s.id !== 'sup'; });
+            return end;
+        }
+
+        function getSlots(recipe, unfMode) {
+            var herbs = ALL_SLOTS.herbs.map(function(h) {
+                return unfMode
+                    ? { label: h.unf_label, short: h.unf_short }
+                    : { label: h.label, short: h.short };
+            });
+            var slots = herbs.concat(ALL_SLOTS.other_herbs, ALL_SLOTS.secondaries, ALL_SLOTS.extremes, getEndSlots(recipe));
+            return slots;
+        }
+
+        function getManualSlots(unfMode) {
+            var base = unfMode ? MANUAL_HERBS : MANUAL_UNF;
+            return base.concat(MANUAL_SUPERS);
+        }
+
+        // ── state ────────────────────────────────────────────────
+        var cols    = 4;
+        var mode    = 'herbs';
+        var recipe  = 'elder';
+        var showing = false;
+        var labelX  = 0;
+        var labelY  = 0;
+        var lastMouseRs = null;
+        var alt1Initialized = false;
+        var ocrInterval = null;
+
+        // ── grid UI ───────────────────────────────────────────────
+        function buildGrid() {
+            var slots = getSlots(recipe, mode === 'unf');
+            var manualLabels = getManualSlots(mode === 'unf');
+
+            var grid = document.getElementById('inv-grid');
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+            var old = [];
+            for (var k = 0; k < 28; k++) {
+                var el = document.getElementById('slot-' + k);
+                old[k] = el ? el.value : '';
+            }
+            grid.innerHTML = '';
+            for (var i = 0; i < slots.length; i++) {
+                var div = document.createElement('div');
+                div.className = 'slot';
+                var lbl = document.createElement('span');
+                lbl.className = 'lbl';
+                lbl.textContent = slots[i].label;
+                lbl.title = slots[i].label;
+                var inp = document.createElement('input');
+                inp.type = 'text';
+                inp.id = 'slot-' + i;
+                inp.placeholder = '0';
+                inp.value = old[i] || '';
+                div.appendChild(lbl);
+                div.appendChild(inp);
+                grid.appendChild(div);
+            }
+
+            var manualGrid = document.getElementById('manual-grid');
+            manualGrid.style.gridTemplateColumns = 'repeat(' + Math.min(cols, 6) + ', 1fr)';
+            var oldManual = [];
+            for (var j = 0; j < 18; j++) {
+                var mel = document.getElementById('manual-' + j);
+                oldManual[j] = mel ? mel.value : '';
+            }
+            manualGrid.innerHTML = '';
+            for (var i2 = 0; i2 < manualLabels.length; i2++) {
+                var div2 = document.createElement('div');
+                div2.className = 'slot';
+                var lbl2 = document.createElement('span');
+                lbl2.className = 'lbl';
+                lbl2.textContent = manualLabels[i2];
+                lbl2.title = manualLabels[i2];
+                var inp2 = document.createElement('input');
+                inp2.type = 'text';
+                inp2.id = 'manual-' + i2;
+                inp2.placeholder = '0';
+                inp2.value = oldManual[i2] || '';
+                div2.appendChild(lbl2);
+                div2.appendChild(inp2);
+                manualGrid.appendChild(div2);
+            }
+        }
+
+        function fillGrid(values) {
+            var slots = getSlots(recipe, mode === 'unf');
+            for (var i = 0; i < slots.length; i++) {
+                var el = document.getElementById('slot-' + i);
+                if (el) el.value = values[i] || '';
+            }
+        }
+
+        function runOCR(mouseRs) {
+            var slots = getSlots(recipe, mode === 'unf');
+            var results = [];
+            for (var i = 0; i < slots.length; i++) {
+                var col = i % cols;
+                var row = Math.floor(i / cols);
+                var xShift = row >= 2 ? 2 : 0;
+                var rx = mouseRs.x - 4 + col * 40 + xShift;
+                var ry = mouseRs.y - 10 + row * 36;
+                results.push(ocrRegion(rx, ry, 40, 20));
+            }
+            fillGrid(results);
+            document.getElementById('status').textContent = 'OCR complete';
+        }
+
+        // ── overlay ───────────────────────────────────────────────
+        function mixColor(r, g, b, a) {
+            if (a === undefined) a = 255;
+            return (b | (g << 8) | (r << 16) | (a << 24)) | 0;
+        }
+
+        function draw() {
+            if (!showing || typeof alt1 === 'undefined') return;
+            var slots = getSlots(recipe, mode === 'unf');
+            alt1.overLaySetGroup('overload');
+            var charW = 5;
+            for (var i = 0; i < slots.length; i++) {
+                var col = i % cols;
+                var row = Math.floor(i / cols);
+                var xShift = row >= 2 ? 2 : 0;
+                var text = slots[i].short;
+                var cx = labelX + col * 40 + xShift + Math.round((42 - text.length * charW) / 2) - 17;
+                alt1.overLayTextEx(text, mixColor(255, 255, 255), 8, cx, labelY + row * 36 - 7, 2000, '', false, true);
+            }
+        }
+
+        // ── help toggle ───────────────────────────────────────────
+        document.getElementById('help-trigger').addEventListener('click', function () {
+            document.getElementById('help-box').classList.toggle('visible');
+        });
+
+        // ── toggle ────────────────────────────────────────────────
+        document.getElementById('btn-herbs').addEventListener('click', function () {
+            mode = 'herbs';
+            this.classList.add('active');
+            document.getElementById('btn-unf').classList.remove('active');
+            buildGrid();
+        });
+        document.getElementById('btn-unf').addEventListener('click', function () {
+            mode = 'unf';
+            this.classList.add('active');
+            document.getElementById('btn-herbs').classList.remove('active');
+            buildGrid();
+        });
+
+        // ── recipe ────────────────────────────────────────────────
+        document.getElementById('recipe').addEventListener('change', function (e) {
+            recipe = e.target.value;
+            buildGrid();
+        });
+
+        // ── init ──────────────────────────────────────────────────
+        document.getElementById('cols').addEventListener('change', function (e) {
+            cols = +e.target.value;
+            buildGrid();
+            if (lastMouseRs) runOCR(lastMouseRs);
+        });
+
+        buildGrid();
+
+        // ── calculator ────────────────────────────────────────────
+        var POTION_TYPES = ['attack', 'strength', 'defence', 'magic', 'ranging', 'necromancy'];
+
+        function readOwnedFromSlots() {
+            var slots = getSlots(recipe, mode === 'unf');
+            var manualLabels = getManualSlots(mode === 'unf');
+            var owned = {};
+
+            for (var i = 0; i < slots.length; i++) {
+                var el = document.getElementById('slot-' + i);
+                var val = el ? (parseInt(el.value, 10) || 0) : 0;
+                owned[slots[i].label] = val;
+            }
+            for (var j = 0; j < manualLabels.length; j++) {
+                var mel = document.getElementById('manual-' + j);
+                var mval = mel ? (parseInt(mel.value, 10) || 0) : 0;
+                owned[manualLabels[j]] = mval;
+            }
+            return owned;
+        }
+
+        function getHerbOwned(owned) {
+            return {
+                'Irit': owned['Irit'] || 0,
+                'Kwuarm': owned['Kwuarm'] || owned['Kwua'] || 0,
+                'Cadantine': owned['Cadan'] || 0,
+                'Lantadyme': owned['Lanta'] || 0,
+                'Dwarf weed': owned['Dwarf'] || 0,
+                'Spirit weed': owned['Spirit'] || 0,
+                'Fellstalk': owned['Fell'] || 0,
+                'Avantoe': owned['Avant'] || 0,
+                'Torstol': owned['Torst'] || 0
+            };
+        }
+
+        function getSecOwned(owned) {
+            return {
+                'Eye of newt': owned['Newt'] || 0,
+                'Limpwurt root': owned['Limp'] || 0,
+                'White berries': owned['WhBer'] || 0,
+                'Potato cactus': owned['Cactus'] || 0,
+                'Wine of Zamorak': owned['WineZ'] || 0,
+                'Congealed blood': owned['Blood'] || 0,
+                'Ground mud rune': owned['MudRn'] || 0,
+                'Grenwall spikes': owned['Gren'] || 0,
+                'Ground miasma rune': owned['Miasma'] || 0
+            };
+        }
+
+        function getOtherOwned(owned) {
+            return {
+                'Overload (3)': owned['Ovl (3)'] || 0,
+                'Crystal flask': owned['Flask'] || 0,
+                'Primal extract': owned['Primal'] || 0,
+                'Supreme overload (6)': owned['Sup (6)'] || 0
+            };
+        }
+
+        function getPotionOwned(owned) {
+            var result = {};
+            var types = ['Att', 'Str', 'Def', 'Mag', 'Rng', 'Nec'];
+            var full = POTION_TYPES;
+            for (var i = 0; i < types.length; i++) {
+                result[full[i]] = {
+                    Super3: owned['S.' + types[i] + ' (3)'] || 0,
+                    Super4: owned['S.' + types[i] + ' (4)'] || 0,
+                    Extreme3: owned['Ex ' + types[i]] || 0
+                };
+            }
+            return result;
+        }
+
+        function getRecipeConfig() {
+            if (recipe === 'overload') return { needsFellstalk: false, needsPrimalExtract: false, needsSupremeUpgrade: false };
+            if (recipe === 'supreme') return { needsFellstalk: false, needsPrimalExtract: false, needsSupremeUpgrade: true };
+            return { needsFellstalk: true, needsPrimalExtract: true, needsSupremeUpgrade: true };
+        }
+
+        function canMakeCount(count, herbs, secs, other, pots) {
+            var config = getRecipeConfig();
+            var h = JSON.parse(JSON.stringify(herbs));
+            var s = JSON.parse(JSON.stringify(secs));
+            var o = JSON.parse(JSON.stringify(other));
+            var p = JSON.parse(JSON.stringify(pots));
+
+            if (config.needsPrimalExtract) {
+                if ((o['Primal extract'] || 0) < count) return false;
+                o['Primal extract'] -= count;
+            }
+            if (config.needsFellstalk) {
+                if ((h['Fellstalk'] || 0) < count) return false;
+                h['Fellstalk'] -= count;
+            }
+
+            var supreme_needed = 0, overload3_needed = 0;
+
+            if (config.needsSupremeUpgrade) {
+                var sup_owned = o['Supreme overload (6)'] || 0;
+                supreme_needed = Math.max(0, count - sup_owned);
+                o['Supreme overload (6)'] = Math.max(0, sup_owned - count);
+                if ((o['Crystal flask'] || 0) < supreme_needed) return false;
+                o['Crystal flask'] -= supreme_needed;
+                var ovlDoses = supreme_needed * 4;
+                var ovl3_to_make = Math.ceil(ovlDoses / 3);
+                var ovl3_owned = o['Overload (3)'] || 0;
+                overload3_needed = Math.max(0, ovl3_to_make - ovl3_owned);
+                o['Overload (3)'] = Math.max(0, ovl3_owned - ovl3_to_make);
+            } else {
+                var ovl3_own = o['Overload (3)'] || 0;
+                overload3_needed = Math.max(0, count - ovl3_own);
+                o['Overload (3)'] = Math.max(0, ovl3_own - count);
+            }
+
+            if ((h['Torstol'] || 0) < overload3_needed) return false;
+            h['Torstol'] -= overload3_needed;
+
+            var extremesToMake = {};
+            var herbForSuper = ['Irit', 'Kwuarm', 'Cadantine', 'Lantadyme', 'Dwarf weed', 'Spirit weed'];
+            var secForSuper = ['Eye of newt', 'Limpwurt root', 'White berries', 'Potato cactus', 'Wine of Zamorak', 'Congealed blood'];
+            var secMultiplier = [1, 1, 1, 1, 1, 5];
+            var herbForExtreme = ['Avantoe', 'Dwarf weed', 'Lantadyme', null, null, null];
+            var secForExtreme = [null, null, null, 'Ground mud rune', 'Grenwall spikes', 'Ground miasma rune'];
+            var extMultiplier = [1, 1, 1, 1, 5, 1];
+
+            for (var i = 0; i < POTION_TYPES.length; i++) {
+                var type = POTION_TYPES[i];
+                var extOwned = p[type].Extreme3 || 0;
+                extremesToMake[type] = Math.max(0, overload3_needed - extOwned);
+                p[type].Extreme3 = Math.max(0, extOwned - overload3_needed);
+
+                var super4_needed = 0;
+                if (config.needsSupremeUpgrade) {
+                    super4_needed = Math.max(0, supreme_needed - (p[type].Super4 || 0));
+                    p[type].Super4 = Math.max(0, (p[type].Super4 || 0) - supreme_needed);
+                }
+
+                var s3_for_ext = extremesToMake[type];
+                var s3_owned = p[type].Super3 || 0;
+                var s3_make_ext = Math.max(0, s3_for_ext - s3_owned);
+                var remain_s3 = Math.max(0, s3_owned - s3_for_ext);
+                var s3_for_s4 = Math.ceil((super4_needed * 4) / 3);
+                var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
+                var s3_total = s3_make_ext + s3_make_s4;
+
+                if ((h[herbForSuper[i]] || 0) < s3_total) return false;
+                if ((s[secForSuper[i]] || 0) < s3_total * secMultiplier[i]) return false;
+                h[herbForSuper[i]] -= s3_total;
+                s[secForSuper[i]] -= s3_total * secMultiplier[i];
+            }
+
+            for (var j = 0; j < POTION_TYPES.length; j++) {
+                var type2 = POTION_TYPES[j];
+                if (extremesToMake[type2] === 0) continue;
+                var amt = extremesToMake[type2] * extMultiplier[j];
+                if (herbForExtreme[j]) {
+                    if ((h[herbForExtreme[j]] || 0) < amt) return false;
+                    h[herbForExtreme[j]] -= amt;
+                }
+                if (secForExtreme[j]) {
+                    if ((s[secForExtreme[j]] || 0) < amt) return false;
+                    s[secForExtreme[j]] -= amt;
+                }
+            }
+            return true;
+        }
+
+        function calcMax(herbs, secs, other, pots) {
+            var low = 0, high = 10000, best = 0;
+            while (low <= high) {
+                var mid = Math.floor((low + high) / 2);
+                if (canMakeCount(mid, herbs, secs, other, pots)) {
+                    best = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            return best;
+        }
+
+        function calcNeeds(count, herbs, secs, other, pots) {
+            var config = getRecipeConfig();
+            var needs = {};
+            function addNeed(item, amount) { needs[item] = (needs[item] || 0) + amount; }
+
+            if (config.needsPrimalExtract) addNeed('Primal extract', count);
+            if (config.needsFellstalk) addNeed('Fellstalk', count);
+
+            var supreme_needed = 0, overload3_needed = 0;
+            if (config.needsSupremeUpgrade) {
+                var sup_owned = other['Supreme overload (6)'] || 0;
+                supreme_needed = Math.max(0, count - sup_owned);
+                addNeed('Crystal flask', supreme_needed);
+                var ovlDoses = supreme_needed * 4;
+                var ovl3_to_make = Math.ceil(ovlDoses / 3);
+                overload3_needed = Math.max(0, ovl3_to_make - (other['Overload (3)'] || 0));
+            } else {
+                overload3_needed = Math.max(0, count - (other['Overload (3)'] || 0));
+            }
+            addNeed('Torstol', overload3_needed);
+
+            var herbForSuper = ['Irit', 'Kwuarm', 'Cadantine', 'Lantadyme', 'Dwarf weed', 'Spirit weed'];
+            var secForSuper = ['Eye of newt', 'Limpwurt root', 'White berries', 'Potato cactus', 'Wine of Zamorak', 'Congealed blood'];
+            var secMult = [1, 1, 1, 1, 1, 5];
+            var herbForExt = ['Avantoe', 'Dwarf weed', 'Lantadyme', null, null, null];
+            var secForExt = [null, null, null, 'Ground mud rune', 'Grenwall spikes', 'Ground miasma rune'];
+            var extMult = [1, 1, 1, 1, 5, 1];
+
+            for (var i = 0; i < POTION_TYPES.length; i++) {
+                var type = POTION_TYPES[i];
+                var extNeeded = Math.max(0, overload3_needed - (pots[type].Extreme3 || 0));
+
+                if (herbForExt[i]) addNeed(herbForExt[i], extNeeded * extMult[i]);
+                if (secForExt[i]) addNeed(secForExt[i], extNeeded * extMult[i]);
+
+                var super4_needed = 0;
+                if (config.needsSupremeUpgrade) {
+                    super4_needed = Math.max(0, supreme_needed - (pots[type].Super4 || 0));
+                }
+                var s3_for_ext = extNeeded;
+                var s3_owned = pots[type].Super3 || 0;
+                var s3_make_ext = Math.max(0, s3_for_ext - s3_owned);
+                var remain_s3 = Math.max(0, s3_owned - s3_for_ext);
+                var s3_for_s4 = Math.ceil((super4_needed * 4) / 3);
+                var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
+                var s3_total = s3_make_ext + s3_make_s4;
+
+                addNeed(herbForSuper[i], s3_total);
+                addNeed(secForSuper[i], s3_total * secMult[i]);
+            }
+
+            var allOwned = {};
+            var hKeys = ['Irit','Kwuarm','Cadantine','Lantadyme','Dwarf weed','Spirit weed','Fellstalk','Avantoe','Torstol'];
+            var sKeys = ['Eye of newt','Limpwurt root','White berries','Potato cactus','Wine of Zamorak','Congealed blood','Ground mud rune','Grenwall spikes','Ground miasma rune'];
+            for (var hi = 0; hi < hKeys.length; hi++) allOwned[hKeys[hi]] = herbs[hKeys[hi]] || 0;
+            for (var si = 0; si < sKeys.length; si++) allOwned[sKeys[si]] = secs[sKeys[si]] || 0;
+            allOwned['Crystal flask'] = other['Crystal flask'] || 0;
+            allOwned['Primal extract'] = other['Primal extract'] || 0;
+
+            var final = {};
+            for (var key in needs) {
+                var needed = Math.max(0, needs[key] - (allOwned[key] || 0));
+                if (needed > 0) final[key] = needed;
+            }
+            return final;
+        }
+
+        function renderResults(html) {
+            document.getElementById('calc-results').innerHTML = '<div class="results-box">' + html + '</div>';
+        }
+
+        function doCalculate() {
+            var owned = readOwnedFromSlots();
+            var herbs = getHerbOwned(owned);
+            var secs = getSecOwned(owned);
+            var other = getOtherOwned(owned);
+            var pots = getPotionOwned(owned);
+
+            var calcMode = document.querySelector('input[name="calc"]:checked').value;
+            var recipeName = recipe === 'elder' ? 'Elder Overloads' : (recipe === 'supreme' ? 'Supreme Overloads' : 'Overloads');
+
+            if (calcMode === 'max') {
+                var max = calcMax(herbs, secs, other, pots);
+                var needs10 = calcNeeds(max + 10, herbs, secs, other, pots);
+                var needs50 = calcNeeds(max + 50, herbs, secs, other, pots);
+
+                var html = '<h3>You can make ' + max + ' ' + recipeName + '</h3>';
+                html += '<div class="result-group"><b>To make 10 more:</b>' + formatNeeds(needs10) + '</div>';
+                html += '<div class="result-group"><b>To make 50 more:</b>' + formatNeeds(needs50) + '</div>';
+                renderResults(html);
+            } else {
+                var target = parseInt(document.getElementById('target-amount').value, 10) || 0;
+                var needs = calcNeeds(target, herbs, secs, other, pots);
+                var html2 = '<h3>To make ' + target + ' ' + recipeName + ' you need:</h3>';
+                html2 += formatNeeds(needs);
+                renderResults(html2);
+            }
+        }
+
+        function formatNeeds(needs) {
+            var entries = [];
+            for (var key in needs) entries.push([key, needs[key]]);
+            entries.sort(function (a, b) { return b[1] - a[1]; });
+            if (entries.length === 0) return '<ul><li><span>Nothing — you have enough!</span></li></ul>';
+            var html = '<ul>';
+            for (var i = 0; i < entries.length; i++) {
+                var cls = entries[i][1] === 0 ? 'amt zero' : 'amt';
+                html += '<li><span>' + entries[i][0] + '</span><span class="' + cls + '">' + entries[i][1] + '</span></li>';
+            }
+            return html + '</ul>';
+        }
+
+        document.getElementById('btn-calc').addEventListener('click', doCalculate);
+
+        setInterval(function () {
+            if (!alt1Initialized) {
+                if (typeof alt1 === 'undefined') return;
+                alt1Initialized = true;
+                alt1.identifyAppUrl('./appconfig.json');
+                loadFont();
+
+                alt1.events = alt1.events || {};
+                alt1.events['alt1pressed'] = alt1.events['alt1pressed'] || [];
+                alt1.events['alt1pressed'].push(function (e) {
+                    alt1.overLayClearGroup('overload');
+                    lastMouseRs = e.mouseRs;
+                    labelX = e.mouseRs.x + 5;
+                    labelY = e.mouseRs.y + 24;
+                    showing = true;
+                    runOCR(e.mouseRs);
+                    if (ocrInterval) clearInterval(ocrInterval);
+                    ocrInterval = setInterval(function () {
+                        if (lastMouseRs) runOCR(lastMouseRs);
+                    }, 2000);
+                });
+
+                document.getElementById('status').textContent = 'Ready — press Alt+1 in RS';
+            }
+            draw();
+        }, 500);
+    </script>
+</body>
+</html>
