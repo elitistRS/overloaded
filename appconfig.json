@@ -3,7 +3,7 @@
     "description": "OCR inventory quantities for Supreme Overload tracking",
     "appUrl": "./index.html",
     "configUrl": "./appconfig.json",
-    "iconUrl": "https://runescape.wiki/images/Overload_%284%29.png",
+    "iconUrl": "./icon.png",
     "defaultWidth": 200,
     "defaultHeight": 80,
     "permissions": "pixel,overlay"
