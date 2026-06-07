@@ -45,7 +45,7 @@
         .calc-btn { margin-top: 4px; padding: 6px 16px; background: #3a5a3a; border: 1px solid #5a8a5a; color: #cfc; border-radius: 4px; font-size: 14px; cursor: pointer; }
         .calc-btn:hover { background: #4a6a4a; }
         #calc-results { margin-top: 12px; }
-        .results-box { background: #222; border: 1px solid #333; border-radius: 6px; padding: 10px; }
+        .results-box { background: #222; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
         .results-box h3 { margin: 0 0 8px 0; font-size: 14px; color: #cfc; }
         .results-box .result-group { margin-bottom: 10px; }
         .results-box .result-group b { font-size: 12px; color: #aaa; display: block; margin-bottom: 4px; }
@@ -53,12 +53,26 @@
         .results-box li { display: flex; justify-content: space-between; padding: 2px 0; color: #ccc; }
         .results-box li .amt { color: #fc8; font-weight: bold; }
         .results-box li .amt.zero { color: #666; font-weight: normal; }
+        .result-cat { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; margin-bottom: 2px; }
+        .more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .more-box { background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 8px; }
+        .more-box b { font-size: 12px; color: #aaa; display: block; margin-bottom: 4px; }
+        .obtained-btn { margin-top: 10px; padding: 8px 16px; background: #3a4a5a; border: 1px solid #5a7a9a; color: #bdf; border-radius: 4px; font-size: 14px; cursor: pointer; width: 100%; }
+        .obtained-btn:hover { background: #4a5a6a; }
+        .make-section { margin-top: 8px; }
+        .make-section .step-title { font-size: 12px; color: #8cf; margin: 10px 0 4px 0; font-weight: bold; }
+        .make-section .step-desc { font-size: 11px; color: #777; margin-bottom: 4px; }
+        .make-section li .ingredients { font-size: 11px; color: #888; }
         #status { font-size: 12px; color: #888; margin-top: 8px; }
     </style>
 </head>
 <body>
     <div class="top-row">
         <span class="help-trigger" id="help-trigger">How to use &#9432;</span>
+        <div class="toggle-group">
+            <button class="toggle-btn" id="btn-inv">Inventory</button>
+            <button class="toggle-btn active" id="btn-bank">Bank</button>
+        </div>
         <label class="cols-label">Columns:
             <select id="cols">
                 <option value="2">2</option>
@@ -87,10 +101,15 @@
                 <option value="elder" selected>Elder Overload</option>
             </select>
         </label>
-        <div class="toggle-group">
+        <div class="toggle-group" id="toggle-startfrom">
             <span>Start from:</span>
             <button class="toggle-btn active" id="btn-herbs">Herbs</button>
             <button class="toggle-btn" id="btn-unf">Unfinished</button>
+        </div>
+        <div class="toggle-group">
+            <span>Scanning:</span>
+            <button class="toggle-btn active" id="btn-ingredients">Ingredients</button>
+            <button class="toggle-btn" id="btn-potions">Tradeable potions</button>
         </div>
     </div>
 
@@ -277,6 +296,29 @@
             'Lanta', 'Dwarf', 'Spirit'
         ];
 
+        // Slots for tradeable potions mode: supers + extremes replace herbs+secondaries
+        var POTION_SLOTS = [
+            { label: 'S.Att (3)', short: 'SAtt3' },
+            { label: 'S.Att (4)', short: 'SAtt4' },
+            { label: 'S.Str (3)', short: 'SStr3' },
+            { label: 'S.Str (4)', short: 'SStr4' },
+            { label: 'S.Def (3)', short: 'SDef3' },
+            { label: 'S.Def (4)', short: 'SDef4' },
+            { label: 'S.Mag (3)', short: 'SMag3' },
+            { label: 'S.Mag (4)', short: 'SMag4' },
+            { label: 'S.Rng (3)', short: 'SRng3' },
+            { label: 'S.Rng (4)', short: 'SRng4' },
+            { label: 'S.Nec (3)', short: 'SNec3' },
+            { label: 'S.Nec (4)', short: 'SNec4' },
+            { label: 'Ex Att',    short: 'Ex Att' },
+            { label: 'Ex Str',    short: 'Ex Str' },
+            { label: 'Ex Def',    short: 'Ex Def' },
+            { label: 'Ex Mag',    short: 'Ex Mag' },
+            { label: 'Ex Rng',    short: 'Ex Rng' },
+            { label: 'Ex Nec',    short: 'Ex Nec' },
+            { label: 'Torst',     short: 'Torst' }
+        ];
+
         function getEndSlots(recipe) {
             var end = ALL_SLOTS.end;
             if (recipe === 'overload') return end.filter(function(s) { return s.id !== 'ovl' && s.id !== 'flask' && s.id !== 'primal' && s.id !== 'fell' && s.id !== 'sup'; });
@@ -285,6 +327,9 @@
         }
 
         function getSlots(recipe, unfMode) {
+            if (scanning === 'potions') {
+                return POTION_SLOTS.concat(getEndSlots(recipe));
+            }
             var herbs = ALL_SLOTS.herbs.map(function(h) {
                 return unfMode
                     ? { label: h.unf_label, short: h.unf_short }
@@ -295,6 +340,9 @@
         }
 
         function getManualSlots(unfMode) {
+            if (scanning === 'potions') {
+                return [];
+            }
             var base = unfMode ? MANUAL_HERBS : MANUAL_UNF;
             return base.concat(MANUAL_SUPERS);
         }
@@ -303,6 +351,10 @@
         var cols    = 4;
         var mode    = 'herbs';
         var recipe  = 'elder';
+        var source  = 'bank';
+        var scanning = 'ingredients';
+        var SLOT_W_INV = 40;
+        var SLOT_W_BANK = 47;
         var showing = false;
         var labelX  = 0;
         var labelY  = 0;
@@ -347,6 +399,15 @@
                 var mel = document.getElementById('manual-' + j);
                 oldManual[j] = mel ? mel.value : '';
             }
+            var manualDivider = document.querySelector('.section-divider');
+            var manualSubtitle = document.querySelector('.section-subtitle');
+            if (manualLabels.length === 0) {
+                manualDivider.style.display = 'none';
+                manualSubtitle.style.display = 'none';
+            } else {
+                manualDivider.style.display = '';
+                manualSubtitle.style.display = '';
+            }
             manualGrid.innerHTML = '';
             for (var i2 = 0; i2 < manualLabels.length; i2++) {
                 var div2 = document.createElement('div');
@@ -381,7 +442,8 @@
                 var col = i % cols;
                 var row = Math.floor(i / cols);
                 var xShift = row >= 2 ? 2 : 0;
-                var rx = mouseRs.x - 4 + col * 40 + xShift;
+                var slotW = source === 'bank' ? SLOT_W_BANK : SLOT_W_INV;
+                var rx = mouseRs.x - 4 + col * slotW + xShift;
                 var ry = mouseRs.y - 10 + row * 36;
                 results.push(ocrRegion(rx, ry, 40, 20));
             }
@@ -405,7 +467,8 @@
                 var row = Math.floor(i / cols);
                 var xShift = row >= 2 ? 2 : 0;
                 var text = slots[i].short;
-                var cx = labelX + col * 40 + xShift + Math.round((42 - text.length * charW) / 2) - 17;
+                var slotW = source === 'bank' ? SLOT_W_BANK : SLOT_W_INV;
+                var cx = labelX + col * slotW + xShift + Math.round((slotW + 2 - text.length * charW) / 2) - 17;
                 alt1.overLayTextEx(text, mixColor(255, 255, 255), 8, cx, labelY + row * 36 - 7, 2000, '', false, true);
             }
         }
@@ -427,6 +490,34 @@
             this.classList.add('active');
             document.getElementById('btn-herbs').classList.remove('active');
             buildGrid();
+        });
+
+        // ── scanning toggle ───────────────────────────────────────
+        document.getElementById('btn-ingredients').addEventListener('click', function () {
+            scanning = 'ingredients';
+            this.classList.add('active');
+            document.getElementById('btn-potions').classList.remove('active');
+            document.getElementById('toggle-startfrom').style.display = '';
+            buildGrid();
+        });
+        document.getElementById('btn-potions').addEventListener('click', function () {
+            scanning = 'potions';
+            this.classList.add('active');
+            document.getElementById('btn-ingredients').classList.remove('active');
+            document.getElementById('toggle-startfrom').style.display = 'none';
+            buildGrid();
+        });
+
+        // ── source toggle ─────────────────────────────────────────
+        document.getElementById('btn-inv').addEventListener('click', function () {
+            source = 'inv';
+            this.classList.add('active');
+            document.getElementById('btn-bank').classList.remove('active');
+        });
+        document.getElementById('btn-bank').addEventListener('click', function () {
+            source = 'bank';
+            this.classList.add('active');
+            document.getElementById('btn-inv').classList.remove('active');
         });
 
         // ── recipe ────────────────────────────────────────────────
@@ -588,15 +679,24 @@
                 var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
                 var s3_total = s3_make_ext + s3_make_s4;
 
-                if ((h[herbForSuper[i]] || 0) < s3_total) return false;
-                if ((s[secForSuper[i]] || 0) < s3_total * secMultiplier[i]) return false;
-                h[herbForSuper[i]] -= s3_total;
-                s[secForSuper[i]] -= s3_total * secMultiplier[i];
+                if (scanning === 'potions') {
+                    // In potions mode, can't make supers from herbs — need to buy them
+                    if (s3_total > 0) return false;
+                } else {
+                    if ((h[herbForSuper[i]] || 0) < s3_total) return false;
+                    if ((s[secForSuper[i]] || 0) < s3_total * secMultiplier[i]) return false;
+                    h[herbForSuper[i]] -= s3_total;
+                    s[secForSuper[i]] -= s3_total * secMultiplier[i];
+                }
             }
 
             for (var j = 0; j < POTION_TYPES.length; j++) {
                 var type2 = POTION_TYPES[j];
                 if (extremesToMake[type2] === 0) continue;
+                if (scanning === 'potions') {
+                    // In potions mode, can't make extremes — need to buy them
+                    return false;
+                }
                 var amt = extremesToMake[type2] * extMultiplier[j];
                 if (herbForExtreme[j]) {
                     if ((h[herbForExtreme[j]] || 0) < amt) return false;
@@ -652,34 +752,63 @@
             var secForExt = [null, null, null, 'Ground mud rune', 'Grenwall spikes', 'Ground miasma rune'];
             var extMult = [1, 1, 1, 1, 5, 1];
 
-            for (var i = 0; i < POTION_TYPES.length; i++) {
-                var type = POTION_TYPES[i];
-                var extNeeded = Math.max(0, overload3_needed - (pots[type].Extreme3 || 0));
+            var superNames = ['Super attack', 'Super strength', 'Super defence', 'Super magic', 'Super ranging', 'Super necromancy'];
+            var extremeNames = ['Extreme attack', 'Extreme strength', 'Extreme defence', 'Extreme magic', 'Extreme ranging', 'Extreme necromancy'];
 
-                if (herbForExt[i]) addNeed(herbForExt[i], extNeeded * extMult[i]);
-                if (secForExt[i]) addNeed(secForExt[i], extNeeded * extMult[i]);
+            if (scanning === 'potions') {
+                // Potions mode: buy Super (4) and Extreme (3) directly
+                for (var i = 0; i < POTION_TYPES.length; i++) {
+                    var type = POTION_TYPES[i];
+                    var extNeeded = Math.max(0, overload3_needed - (pots[type].Extreme3 || 0));
+                    if (extNeeded > 0) addNeed(extremeNames[i] + ' (3)', extNeeded);
 
-                var super4_needed = 0;
-                if (config.needsSupremeUpgrade) {
-                    super4_needed = Math.max(0, supreme_needed - (pots[type].Super4 || 0));
+                    if (config.needsSupremeUpgrade) {
+                        // Super (4) needed for supremes, minus owned (4), minus what owned (3) can cover
+                        var s4_needed = supreme_needed;
+                        var s4_owned = pots[type].Super4 || 0;
+                        var s4_short = Math.max(0, s4_needed - s4_owned);
+                        var s3_owned = pots[type].Super3 || 0;
+                        var s4_from_s3 = Math.floor((s3_owned * 3) / 4);
+                        var s4_to_buy = Math.max(0, s4_short - s4_from_s3);
+                        if (s4_to_buy > 0) addNeed(superNames[i] + ' (4)', s4_to_buy);
+                    }
                 }
-                var s3_for_ext = extNeeded;
-                var s3_owned = pots[type].Super3 || 0;
-                var s3_make_ext = Math.max(0, s3_for_ext - s3_owned);
-                var remain_s3 = Math.max(0, s3_owned - s3_for_ext);
-                var s3_for_s4 = Math.ceil((super4_needed * 4) / 3);
-                var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
-                var s3_total = s3_make_ext + s3_make_s4;
+            } else {
+                // Ingredients mode: make supers from herbs
+                for (var i = 0; i < POTION_TYPES.length; i++) {
+                    var type = POTION_TYPES[i];
+                    var extNeeded = Math.max(0, overload3_needed - (pots[type].Extreme3 || 0));
 
-                addNeed(herbForSuper[i], s3_total);
-                addNeed(secForSuper[i], s3_total * secMult[i]);
+                    if (herbForExt[i]) addNeed(herbForExt[i], extNeeded * extMult[i]);
+                    if (secForExt[i]) addNeed(secForExt[i], extNeeded * extMult[i]);
+
+                    var super4_needed = 0;
+                    if (config.needsSupremeUpgrade) {
+                        super4_needed = Math.max(0, supreme_needed - (pots[type].Super4 || 0));
+                    }
+                    var s3_for_ext = extNeeded;
+                    var s3_owned = pots[type].Super3 || 0;
+                    var s3_make_ext = Math.max(0, s3_for_ext - s3_owned);
+                    var remain_s3 = Math.max(0, s3_owned - s3_for_ext);
+                    var s3_for_s4 = Math.ceil((super4_needed * 4) / 3);
+                    var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
+                    var s3_total = s3_make_ext + s3_make_s4;
+
+                    addNeed(herbForSuper[i], s3_total);
+                    addNeed(secForSuper[i], s3_total * secMult[i]);
+                }
             }
 
             var allOwned = {};
-            var hKeys = ['Irit','Kwuarm','Cadantine','Lantadyme','Dwarf weed','Spirit weed','Fellstalk','Avantoe','Torstol'];
-            var sKeys = ['Eye of newt','Limpwurt root','White berries','Potato cactus','Wine of Zamorak','Congealed blood','Ground mud rune','Grenwall spikes','Ground miasma rune'];
-            for (var hi = 0; hi < hKeys.length; hi++) allOwned[hKeys[hi]] = herbs[hKeys[hi]] || 0;
-            for (var si = 0; si < sKeys.length; si++) allOwned[sKeys[si]] = secs[sKeys[si]] || 0;
+            if (scanning !== 'potions') {
+                var hKeys = ['Irit','Kwuarm','Cadantine','Lantadyme','Dwarf weed','Spirit weed','Fellstalk','Avantoe','Torstol'];
+                var sKeys = ['Eye of newt','Limpwurt root','White berries','Potato cactus','Wine of Zamorak','Congealed blood','Ground mud rune','Grenwall spikes','Ground miasma rune'];
+                for (var hi = 0; hi < hKeys.length; hi++) allOwned[hKeys[hi]] = herbs[hKeys[hi]] || 0;
+                for (var si = 0; si < sKeys.length; si++) allOwned[sKeys[si]] = secs[sKeys[si]] || 0;
+            } else {
+                allOwned['Torstol'] = herbs['Torstol'] || 0;
+                allOwned['Fellstalk'] = herbs['Fellstalk'] || 0;
+            }
             allOwned['Crystal flask'] = other['Crystal flask'] || 0;
             allOwned['Primal extract'] = other['Primal extract'] || 0;
 
@@ -692,8 +821,10 @@
         }
 
         function renderResults(html) {
-            document.getElementById('calc-results').innerHTML = '<div class="results-box">' + html + '</div>';
+            document.getElementById('calc-results').innerHTML = html;
         }
+
+        var lastCalcTarget = 0;
 
         function doCalculate() {
             var owned = readOwnedFromSlots();
@@ -707,29 +838,205 @@
 
             if (calcMode === 'max') {
                 var max = calcMax(herbs, secs, other, pots);
+                lastCalcTarget = max;
                 var needs10 = calcNeeds(max + 10, herbs, secs, other, pots);
                 var needs50 = calcNeeds(max + 50, herbs, secs, other, pots);
+                var needs100 = calcNeeds(max + 100, herbs, secs, other, pots);
 
-                var html = '<h3>You can make ' + max + ' ' + recipeName + '</h3>';
-                html += '<div class="result-group"><b>To make 10 more:</b>' + formatNeeds(needs10) + '</div>';
-                html += '<div class="result-group"><b>To make 50 more:</b>' + formatNeeds(needs50) + '</div>';
+                var html = '<div class="results-box"><h3>You can make ' + max + ' ' + recipeName + '</h3>';
+                html += '<div class="more-grid">';
+                html += '<div class="more-box"><b>To make 10 more</b>' + formatNeeds(needs10) + '</div>';
+                html += '<div class="more-box"><b>To make 50 more</b>' + formatNeeds(needs50) + '</div>';
+                html += '<div class="more-box"><b>To make 100 more</b>' + formatNeeds(needs100) + '</div>';
+                html += '</div></div>';
                 renderResults(html);
             } else {
                 var target = parseInt(document.getElementById('target-amount').value, 10) || 0;
+                lastCalcTarget = target;
                 var needs = calcNeeds(target, herbs, secs, other, pots);
-                var html2 = '<h3>To make ' + target + ' ' + recipeName + ' you need:</h3>';
+                var html2 = '<div class="results-box"><h3>To make ' + target + ' ' + recipeName + ' you need:</h3>';
                 html2 += formatNeeds(needs);
+                html2 += '<button class="obtained-btn" onclick="showMakeSteps()">Obtained — start making</button>';
+                html2 += '</div>';
+                html2 += '<div id="make-steps"></div>';
                 renderResults(html2);
             }
         }
 
+        function calcMakeData(count, pots, other) {
+            var config = getRecipeConfig();
+            var data = { unf: [], supers: [], decanting: [], extremes: [], overloads: 0, supremes: 0, elders: 0 };
+
+            var supreme_needed = 0;
+            if (config.needsSupremeUpgrade) {
+                supreme_needed = Math.max(0, count - (other['Supreme overload (6)'] || 0));
+            }
+
+            var overload3_needed = 0;
+            if (config.needsSupremeUpgrade) {
+                overload3_needed = Math.max(0, Math.ceil((supreme_needed * 4) / 3) - (other['Overload (3)'] || 0));
+            } else {
+                overload3_needed = Math.max(0, count - (other['Overload (3)'] || 0));
+            }
+
+            var typeNames = ['attack', 'strength', 'defence', 'magic', 'ranging', 'necromancy'];
+            var unfNames = ['Irit potion (unf)', 'Kwuarm potion (unf)', 'Cadantine potion (unf)', 'Lantadyme potion (unf)', 'Dwarf weed potion (unf)', 'Spirit weed potion (unf)'];
+            var superNames = ['Super attack (3)', 'Super strength (3)', 'Super defence (3)', 'Super magic (3)', 'Super ranging (3)', 'Super necromancy (3)'];
+            var superIngr = [
+                ['Irit potion (unf)', 'Eye of newt'],
+                ['Kwuarm potion (unf)', 'Limpwurt root'],
+                ['Cadantine potion (unf)', 'White berries'],
+                ['Lantadyme potion (unf)', 'Potato cactus'],
+                ['Dwarf weed potion (unf)', 'Wine of Zamorak'],
+                ['Spirit weed potion (unf)', 'Congealed blood ×5']
+            ];
+            var extNames = ['Extreme attack (3)', 'Extreme strength (3)', 'Extreme defence (3)', 'Extreme magic (3)', 'Extreme ranging (3)', 'Extreme necromancy (3)'];
+            var extIngr = [
+                ['Super attack (3)', 'Avantoe'],
+                ['Super strength (3)', 'Dwarf weed'],
+                ['Super defence (3)', 'Lantadyme'],
+                ['Super magic (3)', 'Ground mud rune'],
+                ['Super ranging (3)', 'Grenwall spikes ×5'],
+                ['Super necromancy (3)', 'Ground miasma rune']
+            ];
+
+            for (var i = 0; i < 6; i++) {
+                var type = typeNames[i];
+                var extMake = Math.max(0, overload3_needed - (pots[type].Extreme3 || 0));
+                var super4_needed = 0;
+                if (config.needsSupremeUpgrade) {
+                    super4_needed = Math.max(0, supreme_needed - (pots[type].Super4 || 0));
+                }
+
+                var s3_for_ext = extMake;
+                var s3_owned = pots[type].Super3 || 0;
+                var s3_make_ext = Math.max(0, s3_for_ext - s3_owned);
+                var remain_s3 = Math.max(0, s3_owned - s3_for_ext);
+                var s3_for_s4 = Math.ceil((super4_needed * 4) / 3);
+                var s3_make_s4 = Math.max(0, s3_for_s4 - remain_s3);
+                var s3_total = s3_make_ext + s3_make_s4;
+
+                if (scanning !== 'potions') {
+                    if (s3_total > 0) {
+                        data.unf.push({ name: unfNames[i], amount: s3_total });
+                        data.supers.push({ name: superNames[i], amount: s3_total, ingredients: superIngr[i] });
+                    }
+                }
+                if (super4_needed > 0) {
+                    var s3_for_decant = s3_total - s3_make_ext > 0 ? s3_make_s4 + Math.max(0, remain_s3 - (s3_for_s4 - s3_make_s4)) : s3_for_s4;
+                    data.decanting.push({ name: superNames[i], s3_count: Math.ceil((super4_needed * 4) / 3), s4_result: super4_needed });
+                }
+                if (extMake > 0 && scanning !== 'potions') {
+                    data.extremes.push({ name: extNames[i], amount: extMake, ingredients: extIngr[i] });
+                }
+            }
+
+            data.overloads = overload3_needed;
+            data.supremes = supreme_needed;
+            data.elders = config.needsPrimalExtract ? count : 0;
+            return data;
+        }
+
+        function showMakeSteps() {
+            var owned = readOwnedFromSlots();
+            var other = getOtherOwned(owned);
+            var pots = getPotionOwned(owned);
+            var data = calcMakeData(lastCalcTarget, pots, other);
+            var config = getRecipeConfig();
+
+            var html = '<div class="results-box make-section">';
+            html += '<h3>What to make</h3>';
+            html += '<p style="font-size:12px;color:#888;margin:0 0 8px 0;">Make these potions with the items from the previous section.</p>';
+
+            if (data.unf.length > 0 && mode === 'herbs') {
+                html += '<div class="step-title">Unfinished potions</div>';
+                html += '<ul>';
+                for (var u = 0; u < data.unf.length; u++)
+                    html += '<li><span>' + data.unf[u].name + '</span><span class="amt">' + data.unf[u].amount + '</span></li>';
+                html += '</ul>';
+            }
+
+            if (data.supers.length > 0) {
+                html += '<div class="step-title">Super potions (3)</div>';
+                html += '<ul>';
+                for (var s = 0; s < data.supers.length; s++)
+                    html += '<li><span>' + data.supers[s].name + '</span><span class="amt">' + data.supers[s].amount + '</span></li>' +
+                            '<li><span class="ingredients">' + data.supers[s].ingredients.join(' + ') + '</span></li>';
+                html += '</ul>';
+            }
+
+            if (data.decanting.length > 0 && config.needsSupremeUpgrade) {
+                html += '<div class="step-title">Decanting</div>';
+                html += '<p class="step-desc">Decant these Super (3)s into (4)s for Supreme overloads.</p>';
+                html += '<ul>';
+                for (var d = 0; d < data.decanting.length; d++)
+                    html += '<li><span>' + data.decanting[d].name + ' → (4)</span><span class="amt">' + data.decanting[d].s4_result + '</span></li>';
+                html += '</ul>';
+            }
+
+            if (data.extremes.length > 0) {
+                html += '<div class="step-title">Extreme potions (3)</div>';
+                html += '<ul>';
+                for (var e = 0; e < data.extremes.length; e++)
+                    html += '<li><span>' + data.extremes[e].name + '</span><span class="amt">' + data.extremes[e].amount + '</span></li>' +
+                            '<li><span class="ingredients">' + data.extremes[e].ingredients.join(' + ') + '</span></li>';
+                html += '</ul>';
+            }
+
+            if (data.overloads > 0) {
+                html += '<div class="step-title">Overload (3)</div>';
+                html += '<ul><li><span>Overload (3)</span><span class="amt">' + data.overloads + '</span></li>';
+                html += '<li><span class="ingredients">All 6 Extreme (3)s + Torstol</span></li></ul>';
+            }
+
+            if (data.supremes > 0 && config.needsSupremeUpgrade) {
+                html += '<div class="step-title">Combination potions</div>';
+                html += '<ul>';
+                html += '<li><span>Supreme overload (6)</span><span class="amt">' + data.supremes + '</span></li>';
+                html += '<li><span class="ingredients">Overload (4) + 6× Super (4) + Crystal flask</span></li>';
+                if (data.elders > 0) {
+                    html += '<li><span>Elder overload (6)</span><span class="amt">' + data.elders + '</span></li>';
+                    html += '<li><span class="ingredients">Supreme overload (6) + Fellstalk + Primal extract</span></li>';
+                }
+                html += '</ul>';
+            } else if (data.overloads > 0) {
+                html += '<div class="step-title">Final</div>';
+                html += '<ul><li><span>Overload (3)</span><span class="amt">' + data.overloads + '</span></li></ul>';
+            }
+
+            html += '</div>';
+            document.getElementById('make-steps').innerHTML = html;
+        }
+
+        function categorizeItem(name) {
+            if (/^Super /.test(name)) return 'super';
+            if (/^Extreme /.test(name)) return 'extreme';
+            var herbs = ['Irit','Kwuarm','Cadantine','Lantadyme','Dwarf weed','Spirit weed','Fellstalk','Avantoe','Torstol'];
+            for (var i = 0; i < herbs.length; i++) if (name === herbs[i]) return 'herb';
+            var secs = ['Eye of newt','Limpwurt root','White berries','Potato cactus','Wine of Zamorak','Congealed blood','Ground mud rune','Grenwall spikes','Ground miasma rune'];
+            for (var j = 0; j < secs.length; j++) if (name === secs[j]) return 'secondary';
+            return 'other';
+        }
+
+        var CAT_ORDER = { herb: 0, secondary: 1, super: 2, extreme: 3, other: 4 };
+        var CAT_LABELS = { herb: 'Herbs', secondary: 'Secondaries', super: 'Super potions', extreme: 'Extreme potions', other: 'Other' };
+
         function formatNeeds(needs) {
             var entries = [];
-            for (var key in needs) entries.push([key, needs[key]]);
-            entries.sort(function (a, b) { return b[1] - a[1]; });
+            for (var key in needs) entries.push([key, needs[key], categorizeItem(key)]);
+            entries.sort(function (a, b) {
+                var d = CAT_ORDER[a[2]] - CAT_ORDER[b[2]];
+                return d !== 0 ? d : b[1] - a[1];
+            });
             if (entries.length === 0) return '<ul><li><span>Nothing — you have enough!</span></li></ul>';
-            var html = '<ul>';
+            var html = '', lastCat = '';
             for (var i = 0; i < entries.length; i++) {
+                var cat = entries[i][2];
+                if (cat !== lastCat) {
+                    if (lastCat) html += '</ul>';
+                    html += '<div class="result-cat">' + CAT_LABELS[cat] + '</div><ul>';
+                    lastCat = cat;
+                }
                 var cls = entries[i][1] === 0 ? 'amt zero' : 'amt';
                 html += '<li><span>' + entries[i][0] + '</span><span class="' + cls + '">' + entries[i][1] + '</span></li>';
             }
